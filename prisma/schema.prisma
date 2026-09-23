@@ -1,0 +1,75 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+model Faculty {
+  id          String   @id @default(cuid())
+  name        String
+  title       String
+  roleTier    Int      @default(3) // 1: VC/Director, 2: Dean/Coordinator, 3: Standard
+  email       String?
+  linkedinUrl String?
+  imageUrl    String?
+  bio         String?
+  order       Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model PlatformSettings {
+  id             String @id @default("default") // Single row pattern
+  primaryColor   String @default("#1B2A4A")
+  secondaryColor String @default("#D4A520")
+  logoUrl        String?
+  coordinatorName String
+  contactPhone   String
+  contactEmail   String @default("placement_dc@nfsu.ac.in")
+}
+
+model Course {
+  id                String    @id @default(cuid())
+  slug              String    @unique
+  name              String
+  batch             String
+  description       String?
+  statBatchSize     String?
+  statTopExpertise  String?
+  statAvgExperience String?
+  students          Student[]
+}
+
+model Tag {
+  id       String    @id @default(cuid())
+  name     String    @unique
+  students Student[] @relation("StudentTags")
+}
+
+model Student {
+  id             String  @id @default(cuid())
+  name           String
+  courseId       String
+  course         Course  @relation(fields: [courseId], references: [id])
+  
+  tags           Tag[]   @relation("StudentTags")
+  
+  experience     String
+  certifications String
+  achievements   String
+  imageUrl       String?
+  linkedinUrl    String?
+  portfolioUrl   String?
+  resumeUrl      String?
+}
+
+model RecruiterVisit {
+  id        String   @id @default(cuid())
+  name      String
+  company   String
+  contact   String?
+  visitedAt DateTime @default(now())
+}

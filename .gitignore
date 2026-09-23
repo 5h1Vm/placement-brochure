@@ -39,3 +39,9 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Temporary scripts and raw intake data
+done_processing/
+
+# Temporary Processing Data
+done_processing/
