@@ -1,25 +1,35 @@
-import { PrismaClient } from '@prisma/client'
+import { prisma } from '@/lib/prisma'
 import { ArrowLeft, ExternalLink } from 'lucide-react'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import ClientStudentGrid from './ClientStudentGrid'
 import CourseStats from './CourseStats'
 
-const prisma = new PrismaClient()
+export async function generateStaticParams() {
+  const courses = await prisma.course.findMany({ select: { slug: true } })
+  return courses.map((course) => ({
+    slug: course.slug,
+  }))
+}
 
 export default async function CourseDetailPage({ params }: { params: Promise<{ slug: string }> }) {
   const resolvedParams = await params
   
-  const course = await prisma.course.findUnique({
-    where: { slug: resolvedParams.slug },
-    include: {
-      students: {
-        include: {
-          tags: true
+  let course = null;
+  try {
+    course = await prisma.course.findUnique({
+      where: { slug: resolvedParams.slug },
+      include: {
+        students: {
+          include: {
+            tags: true
+          }
         }
       }
-    }
-  })
+    });
+  } catch (error) {
+    console.warn("DB Read failed for course:", resolvedParams.slug);
+  }
 
   if (!course) {
     notFound()
@@ -41,9 +51,9 @@ export default async function CourseDetailPage({ params }: { params: Promise<{ s
           
           {(() => {
             const officialLinks: Record<string, string> = {
-              'btech-mtech-cse-cybersecurity': 'https://delhi.nfsu.ac.in/program/prog_details/5?deptid=49',
-              'bsc-msc-cyber-forensics': 'https://delhi.nfsu.ac.in/program/prog_details/8?deptid=46',
-              'msc-cyber-forensics': 'https://delhi.nfsu.ac.in/program/prog_details/12?deptid=46',
+              'btmt': 'https://delhi.nfsu.ac.in/program/prog_details/5?deptid=49',
+              'bsms': 'https://delhi.nfsu.ac.in/program/prog_details/8?deptid=46',
+              'msc-cyber': 'https://delhi.nfsu.ac.in/program/prog_details/12?deptid=46',
               'msc-dfis': 'https://delhi.nfsu.ac.in/program/prog_details/23?deptid=49'
             };
             const link = officialLinks[course.slug];
@@ -67,7 +77,7 @@ export default async function CourseDetailPage({ params }: { params: Promise<{ s
         </div>
         
         {/* Stats Card */}
-        <div className="mt-6 bg-white/60 backdrop-blur-xl border border-white/50 shadow-sm rounded-2xl p-8">
+        <div className="mt-6 bg-white/60 border border-white/50 shadow-sm rounded-2xl p-8">
           <CourseStats course={course} />
         </div>
       </div>
@@ -78,7 +88,9 @@ export default async function CourseDetailPage({ params }: { params: Promise<{ s
         </h2>
       </div>
       
-      <ClientStudentGrid students={course.students} />
+      <div style={{ isolation: 'isolate', position: 'relative' }}>
+        <ClientStudentGrid students={course.students} />
+      </div>
       </div>
     </div>
   )

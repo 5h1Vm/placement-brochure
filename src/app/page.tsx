@@ -1,7 +1,6 @@
 import Link from 'next/link'
-import { PrismaClient } from '@prisma/client'
+import { prisma } from '@/lib/prisma'
 
-const prisma = new PrismaClient()
 
 export default async function Home() {
   const totalStudents = await prisma.student.count()
@@ -56,7 +55,7 @@ export default async function Home() {
             <Link href="/courses" className="inline-block bg-primary hover:bg-primary-dark text-white font-bold py-4 px-10 rounded-xl transition-all text-lg shadow-[0_8px_20px_rgba(27,42,74,0.4)] hover:-translate-y-0.5">
               View Candidate Profiles
             </Link>
-            <a href="#footer-contact" className="inline-block bg-white/95 hover:bg-white text-primary font-bold py-4 px-10 rounded-xl transition-all text-lg border border-gray-300 shadow-[0_8px_20px_rgba(0,0,0,0.1)] hover:border-gray-400">
+            <a href="/contact" className="inline-block bg-white/95 hover:bg-white text-primary font-bold py-4 px-10 rounded-xl transition-all text-lg border border-gray-300 shadow-[0_8px_20px_rgba(0,0,0,0.1)] hover:border-gray-400">
               Contact Placement Office
             </a>
           </div>
@@ -93,10 +92,10 @@ export default async function Home() {
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {[
-              { title: "Computer Science Foundation", desc: "Programming, data structures & algorithms, databases, operating systems, computer networks, software engineering and AI/ML." },
-              { title: "Cybersecurity & Digital Forensics", desc: "VAPT, application security, network security, SOC operations, incident response, malware analysis and digital forensics." },
-              { title: "Hands-on Technical Experience", desc: "Laboratory work, technical projects, internships, applied research and practical problem-solving across security and technology domains." },
-              { title: "Industry & Public-Sector Exposure", desc: "Exposure across technology, consulting, infrastructure, government, law enforcement, forensic laboratories and research ecosystems." },
+              { title: "Strong Foundation in Computer Science", desc: "The academic programmes develop a foundation in programming, algorithms, databases, operating systems, computer networks and software engineering, alongside specialised coursework in cybersecurity and related technologies." },
+              { title: "Specialisation in Cybersecurity & Digital Forensics", desc: "Students receive focused training in areas such as vulnerability assessment, network and application security, digital forensics, malware analysis, incident response and cyber investigation." },
+              { title: "Learning Through Practice", desc: "Academic learning is supported by laboratory work, technical projects, internships, research and practical exercises, giving students opportunities to work with tools, technologies and problems relevant to their chosen fields." },
+              { title: "A National Institution with a Wider Ecosystem", desc: "As an Institution of National Importance under the Ministry of Home Affairs, NFSU brings together academic programmes, forensic sciences, cybersecurity, law-enforcement engagement and research within a specialised university ecosystem." },
             ].map(item => (
               <div key={item.title} className="group p-8 rounded-2xl border border-gray-100 hover:border-secondary/30 hover:shadow-lg transition-all duration-300 bg-gradient-to-br from-gray-50/50 to-white">
                 <h4 className="text-lg font-bold text-primary mb-3 group-hover:text-primary-light transition-colors">{item.title}</h4>
@@ -140,10 +139,10 @@ export default async function Home() {
               
               <div className="space-y-0">
                 {[
-                  { num: "01", title: "Share Requirements", desc: "Share the role, skills, eligibility and hiring requirements." },
-                  { num: "02", title: "Explore Talent", desc: "Review relevant candidate profiles and technical capabilities." },
-                  { num: "03", title: "Conduct Recruitment", desc: "Coordinate assessments, interviews and selection rounds." },
-                  { num: "04", title: "Select Candidates", desc: "Complete the selection and offer process with NFSU support." },
+                  { num: "01", title: "Share Requirements", desc: "Share your Job Descriptions, technical requirements, and eligibility criteria with our dedicated Placement Cell." },
+                  { num: "02", title: "Explore Talent", desc: "Gain access to a curated pool of highly verified, industry-ready technical profiles." },
+                  { num: "03", title: "Conduct Recruitment", desc: "Host Pre-Placement Talks, assessments, and technical interviews seamlessly on campus or virtually." },
+                  { num: "04", title: "Select Candidates", desc: "Roll out offers to selected candidates with end-to-end facilitation from the university." },
                 ].map(step => (
                   <div key={step.num} className="flex items-start group py-6 border-b border-gray-200 last:border-b-0 hover:bg-white hover:px-4 hover:rounded-xl hover:border-transparent transition-all duration-200">
                     <span className="text-3xl font-black text-primary/15 group-hover:text-secondary mr-6 transition-colors select-none w-12 shrink-0">{step.num}</span>

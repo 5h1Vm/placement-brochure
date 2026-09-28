@@ -1,4 +1,4 @@
-import { PrismaClient } from '@prisma/client'
+import { prisma } from '@/lib/prisma'
 import { cookies } from 'next/headers'
 import LoginForm from './LoginForm'
 import CourseManager from './CourseManager'
@@ -9,11 +9,13 @@ import { logoutAdmin, deleteRecruiterVisit } from './actions'
 
 import AdminTabs from './AdminTabs'
 
-const prisma = new PrismaClient()
-
 export default async function AdminPage() {
   const cookieStore = await cookies()
-  const isAuthenticated = cookieStore.get('admin_auth')?.value === 'true'
+  const ADMIN_SECRET = process.env.ADMIN_SECRET
+  if (!ADMIN_SECRET) {
+    return <div className="p-8 text-red-600 font-bold">Server misconfigured: ADMIN_SECRET environment variable is not set.</div>
+  }
+  const isAuthenticated = cookieStore.get('admin_auth')?.value === ADMIN_SECRET
 
   if (!isAuthenticated) {
     return <LoginForm />
@@ -35,7 +37,14 @@ export default async function AdminPage() {
   
   let settings = await prisma.platformSettings.findUnique({ where: { id: 'default' } })
   if (!settings) {
-    settings = await prisma.platformSettings.create({ data: { id: 'default' } })
+    settings = await prisma.platformSettings.create({ 
+      data: { 
+        id: 'default',
+        coordinatorName: 'Prof. Dr. Ajit Muzumdar',
+        contactPhone: '+91 94230 57857',
+        contactEmail: 'placement_dc@nfsu.ac.in'
+      } 
+    })
   }
 
   const faculty = await prisma.faculty.findMany({

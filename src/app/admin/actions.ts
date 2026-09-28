@@ -1,16 +1,56 @@
 'use server'
 
 import { cookies } from 'next/headers'
+import { prisma } from '@/lib/prisma'
+import { sanitizeText, sanitizeColor, sanitizeSlug, sanitizeUrl } from '@/lib/sanitize'
+import { isRateLimited } from '@/lib/rate-limit'
+import { revalidatePath } from 'next/cache'
+
+async function verifyAuth() {
+  const ADMIN_SECRET = process.env.ADMIN_SECRET
+  if (!ADMIN_SECRET) {
+    throw new Error('Server misconfigured: ADMIN_SECRET not set')
+  }
+  const cookieStore = await cookies()
+  if (cookieStore.get('admin_auth')?.value !== ADMIN_SECRET) {
+    throw new Error('Unauthorized Action Blocked')
+  }
+}
+
 
 export async function loginAdmin(password: string) {
-  // Use a hardcoded secret for now, can be moved to .env later
-  const ADMIN_SECRET = process.env.ADMIN_SECRET || 'nfsu_admin'
-  
-  if (password === ADMIN_SECRET) {
-    (await cookies()).set('admin_auth', 'true', { httpOnly: true, path: '/' })
-    return { success: true }
+  const ADMIN_SECRET = process.env.ADMIN_SECRET
+  if (!ADMIN_SECRET) {
+    return { success: false, error: 'Server misconfigured. Set ADMIN_SECRET environment variable.' }
   }
-  return { success: false, error: 'Invalid secret' }
+
+  // Rate limit login attempts: max 5 per minute globally (server actions don't easily expose IP)
+  if (isRateLimited('admin-login-global', 5, 60_000)) {
+    return { success: false, error: 'Too many login attempts. Try again in a minute.' }
+  }
+
+  // Constant-time comparison to prevent timing attacks
+  const passwordBuffer = Buffer.from(password)
+  const secretBuffer = Buffer.from(ADMIN_SECRET)
+  
+  if (passwordBuffer.length !== secretBuffer.length) {
+    return { success: false, error: 'Invalid secret' }
+  }
+  
+  const { timingSafeEqual } = await import('crypto')
+  if (!timingSafeEqual(passwordBuffer, secretBuffer)) {
+    return { success: false, error: 'Invalid secret' }
+  }
+  
+  const cookieStore = await cookies()
+  cookieStore.set('admin_auth', ADMIN_SECRET, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'strict',
+    path: '/',
+    maxAge: 60 * 60 * 4 // 4 hour session max
+  })
+  return { success: true }
 }
 
 export async function logoutAdmin() {
@@ -18,17 +58,16 @@ export async function logoutAdmin() {
 }
 
 export async function addCourse(formData: FormData) {
-  const { PrismaClient } = await import('@prisma/client')
-  const prisma = new PrismaClient()
+  await verifyAuth()
   
-  const name = formData.get('name') as string
-  const slug = formData.get('slug') as string
-  const batch = formData.get('batch') as string
-  const description = formData.get('description') as string
+  const name = sanitizeText(formData.get('name') as string)
+  const slug = sanitizeSlug(formData.get('slug') as string || '')
+  const batch = sanitizeText(formData.get('batch') as string)
+  const description = sanitizeText(formData.get('description') as string)
   
-  const statBatchSize = formData.get('statBatchSize') as string
-  const statTopExpertise = formData.get('statTopExpertise') as string
-  const statAvgExperience = formData.get('statAvgExperience') as string
+  const statBatchSize = sanitizeText(formData.get('statBatchSize') as string)
+  const statTopExpertise = sanitizeText(formData.get('statTopExpertise') as string)
+  const statAvgExperience = sanitizeText(formData.get('statAvgExperience') as string)
 
   if (!name || !slug || !batch) return { success: false, error: 'Missing required fields' }
 
@@ -36,24 +75,24 @@ export async function addCourse(formData: FormData) {
     await prisma.course.create({
       data: { name, slug, batch, description, statBatchSize, statTopExpertise, statAvgExperience }
     })
+    revalidatePath('/admin')
     return { success: true }
-  } catch (error) {
+  } catch {
     return { success: false, error: 'Failed to create course. Slug might already exist.' }
   }
 }
 
 export async function updateCourse(id: string, formData: FormData) {
-  const { PrismaClient } = await import('@prisma/client')
-  const prisma = new PrismaClient()
+  await verifyAuth()
   
-  const name = formData.get('name') as string
-  const slug = formData.get('slug') as string
-  const batch = formData.get('batch') as string
-  const description = formData.get('description') as string
+  const name = sanitizeText(formData.get('name') as string)
+  const slug = sanitizeSlug(formData.get('slug') as string || '')
+  const batch = sanitizeText(formData.get('batch') as string)
+  const description = sanitizeText(formData.get('description') as string)
   
-  const statBatchSize = formData.get('statBatchSize') as string
-  const statTopExpertise = formData.get('statTopExpertise') as string
-  const statAvgExperience = formData.get('statAvgExperience') as string
+  const statBatchSize = sanitizeText(formData.get('statBatchSize') as string)
+  const statTopExpertise = sanitizeText(formData.get('statTopExpertise') as string)
+  const statAvgExperience = sanitizeText(formData.get('statAvgExperience') as string)
 
   if (!name || !slug || !batch) return { success: false, error: 'Missing required fields' }
 
@@ -62,53 +101,64 @@ export async function updateCourse(id: string, formData: FormData) {
       where: { id },
       data: { name, slug, batch, description, statBatchSize, statTopExpertise, statAvgExperience }
     })
+    revalidatePath('/admin')
     return { success: true }
-  } catch (error) {
+  } catch {
     return { success: false, error: 'Failed to update course.' }
   }
 }
 
 export async function deleteCourse(id: string) {
-  const { PrismaClient } = await import('@prisma/client')
-  const prisma = new PrismaClient()
+  await verifyAuth()
   try {
     await prisma.course.delete({ where: { id } })
+    revalidatePath('/admin')
     return { success: true }
-  } catch (error) {
+  } catch {
     return { success: false, error: 'Failed to delete course.' }
   }
 }
 
 export async function deleteTag(id: string) {
-  const { PrismaClient } = await import('@prisma/client')
-  const prisma = new PrismaClient()
+  await verifyAuth()
   await prisma.tag.delete({ where: { id } })
+  revalidatePath('/admin')
 }
 
 export async function addTag(name: string) {
-  const { PrismaClient } = await import('@prisma/client')
-  const prisma = new PrismaClient()
+  await verifyAuth()
+  const safeName = sanitizeText(name)
+  if (!safeName) return { success: false, error: 'Invalid tag name' }
   try {
-    await prisma.tag.create({ data: { name } })
+    await prisma.tag.create({ data: { name: safeName } })
+    revalidatePath('/admin')
     return { success: true }
-  } catch (e) {
+  } catch {
     return { success: false, error: 'Tag might already exist' }
   }
 }
 
 export async function updateSettings(data: { primaryColor: string, secondaryColor: string, contactPhone: string, contactEmail: string, coordinatorName: string }) {
-  const { PrismaClient } = await import('@prisma/client')
-  const prisma = new PrismaClient()
+  await verifyAuth()  // <-- THIS WAS MISSING BEFORE — anyone could overwrite site settings
+
+  const safeData = {
+    primaryColor: sanitizeColor(data.primaryColor),
+    secondaryColor: sanitizeColor(data.secondaryColor),
+    contactPhone: sanitizeText(data.contactPhone).slice(0, 20),
+    contactEmail: sanitizeText(data.contactEmail).slice(0, 100),
+    coordinatorName: sanitizeText(data.coordinatorName).slice(0, 100),
+  }
+
   await prisma.platformSettings.upsert({
     where: { id: 'default' },
-    update: data,
-    create: { id: 'default', ...data }
+    update: safeData,
+    create: { id: 'default', ...safeData }
   })
+  revalidatePath('/admin')
 }
 
 export async function bulkImportStudents(courseId: string, studentsData: any[], mode: 'append' | 'replace') {
-  const { PrismaClient } = await import('@prisma/client')
-  const prisma = new PrismaClient()
+  await verifyAuth()
   
   try {
     if (mode === 'replace') {
@@ -117,45 +167,32 @@ export async function bulkImportStudents(courseId: string, studentsData: any[], 
       })
     }
 
-    // Process students one by one to handle tag connections
     for (const data of studentsData) {
-      // Find the tag IDs for the valid domains
-      const tags = await prisma.tag.findMany({
-        where: {
-          name: {
-            in: data.domains
-          }
-        }
-      })
-
-      // We need case-insensitive mapping because the DB might have "VAPT" and CSV has "vapt"
-      // Wait, sqlite in case-insensitive can be tricky with 'in', but we can just use the tags returned by Prisma.
-      // Actually Prisma's `in` is case-sensitive by default in SQLite. 
-      // To be safe, we will just fetch all tags and filter in memory since tags are small.
       const allTags = await prisma.tag.findMany()
-      const domainsLower = data.domains.map((d: string) => d.toLowerCase())
+      const domainsLower = (data.domains || []).map((d: string) => d.toLowerCase())
       const matchedTags = allTags.filter(t => domainsLower.includes(t.name.toLowerCase()))
 
       await prisma.student.create({
         data: {
-          name: data.name,
+          name: sanitizeText(data.name) || 'Unknown',
           courseId,
-          experience: data.experience,
-          certifications: data.certifications,
-          achievements: data.achievements,
-          linkedinUrl: data.linkedinUrl,
-          resumeUrl: data.resumeUrl,
-          imageUrl: data.photoUrl,
+          experience: data.experience ? sanitizeText(data.experience) : '',
+          certifications: data.certifications ? sanitizeText(data.certifications) : '',
+          achievements: data.achievements ? sanitizeText(data.achievements) : '',
+          linkedinUrl: sanitizeUrl(data.linkedinUrl),
+          resumeUrl: sanitizeUrl(data.resumeUrl),
+          imageUrl: sanitizeUrl(data.photoUrl),
           tags: {
             connect: matchedTags.map(t => ({ id: t.id }))
           }
         }
       })
     }
+    revalidatePath('/admin')
     return { success: true }
   } catch (err: any) {
     console.error(err)
-    return { success: false, error: err.message || 'Failed to import students' }
+    return { success: false, error: 'Failed to import students' }
   }
 }
 
@@ -164,76 +201,79 @@ export async function bulkImportStudents(courseId: string, studentsData: any[], 
 // ==========================================
 
 export async function addFaculty(data: FormData) {
-  const { PrismaClient } = await import('@prisma/client')
-  const prisma = new PrismaClient()
+  await verifyAuth()
   try {
     const faculty = await prisma.faculty.create({
       data: {
-        name: data.get('name') as string,
-        title: data.get('title') as string,
-        roleTier: parseInt(data.get('roleTier') as string, 10) || 3,
-        email: data.get('email') as string || null,
-        linkedinUrl: data.get('linkedinUrl') as string || null,
-        imageUrl: data.get('imageUrl') as string || null,
-        bio: data.get('bio') as string || null,
-        order: parseInt(data.get('order') as string, 10) || 0,
+        name: sanitizeText(data.get('name') as string) || 'Unknown',
+        title: sanitizeText(data.get('title') as string) || 'Faculty',
+        roleTier: Math.min(3, Math.max(1, parseInt(data.get('roleTier') as string, 10) || 3)),
+        email: sanitizeText(data.get('email') as string) || null,
+        linkedinUrl: sanitizeUrl(data.get('linkedinUrl') as string),
+        imageUrl: sanitizeUrl(data.get('imageUrl') as string),
+        bio: sanitizeText(data.get('bio') as string) || null,
+        order: Math.min(999, Math.max(0, parseInt(data.get('order') as string, 10) || 0)),
       }
     })
+    revalidatePath('/admin')
+    revalidatePath('/faculty')
     return { success: true, faculty }
   } catch (err: any) {
-    return { success: false, error: err.message }
+    return { success: false, error: 'Failed to add faculty' }
   }
 }
 
 export async function updateFaculty(id: string, data: FormData) {
-  const { PrismaClient } = await import('@prisma/client')
-  const prisma = new PrismaClient()
+  await verifyAuth()
   try {
     const faculty = await prisma.faculty.update({
       where: { id },
       data: {
-        name: data.get('name') as string,
-        title: data.get('title') as string,
-        roleTier: parseInt(data.get('roleTier') as string, 10) || 3,
-        email: data.get('email') as string || null,
-        linkedinUrl: data.get('linkedinUrl') as string || null,
-        imageUrl: data.get('imageUrl') as string || null,
-        bio: data.get('bio') as string || null,
-        order: parseInt(data.get('order') as string, 10) || 0,
+        name: sanitizeText(data.get('name') as string) || 'Unknown',
+        title: sanitizeText(data.get('title') as string) || 'Faculty',
+        roleTier: Math.min(3, Math.max(1, parseInt(data.get('roleTier') as string, 10) || 3)),
+        email: sanitizeText(data.get('email') as string) || null,
+        linkedinUrl: sanitizeUrl(data.get('linkedinUrl') as string),
+        imageUrl: sanitizeUrl(data.get('imageUrl') as string),
+        bio: sanitizeText(data.get('bio') as string) || null,
+        order: Math.min(999, Math.max(0, parseInt(data.get('order') as string, 10) || 0)),
       }
     })
+    revalidatePath('/admin')
+    revalidatePath('/faculty')
     return { success: true, faculty }
   } catch (err: any) {
-    return { success: false, error: err.message }
+    return { success: false, error: 'Failed to update faculty' }
   }
 }
 
 export async function deleteFaculty(id: string) {
-  const { PrismaClient } = await import('@prisma/client')
-  const prisma = new PrismaClient()
+  await verifyAuth()
   try {
     await prisma.faculty.delete({ where: { id } })
+    revalidatePath('/admin')
+    revalidatePath('/faculty')
     return { success: true }
-  } catch (err: any) {
-    return { success: false, error: err.message }
+  } catch {
+    return { success: false, error: 'Failed to delete faculty' }
   }
 }
 
 export async function deleteRecruiterVisit(id: string) {
-  const { PrismaClient } = require('@prisma/client');
-  const prisma = new PrismaClient();
-  await prisma.recruiterVisit.delete({ where: { id } });
-  const { revalidatePath } = require('next/cache');
-  revalidatePath('/admin');
+  await verifyAuth()
+  await prisma.recruiterVisit.delete({ where: { id } })
+  revalidatePath('/admin')
 }
 
 export async function updateTag(id: string, name: string) {
-  const { PrismaClient } = await import('@prisma/client');
-  const prisma = new PrismaClient();
+  await verifyAuth()
+  const safeName = sanitizeText(name)
+  if (!safeName) return { success: false, error: 'Invalid name' }
   try {
-    await prisma.tag.update({ where: { id }, data: { name } });
-    return { success: true };
-  } catch (e) {
-    return { success: false, error: 'Failed to update or domain already exists' };
+    await prisma.tag.update({ where: { id }, data: { name: safeName } })
+    revalidatePath('/admin')
+    return { success: true }
+  } catch {
+    return { success: false, error: 'Failed to update or domain already exists' }
   }
 }

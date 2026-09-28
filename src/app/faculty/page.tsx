@@ -1,7 +1,6 @@
-import { PrismaClient } from '@prisma/client'
+import { prisma } from '@/lib/prisma'
 import { LinkIcon, Mail } from 'lucide-react'
 
-const prisma = new PrismaClient()
 
 export default async function FacultyPage() {
   const faculty = await prisma.faculty.findMany({
@@ -32,10 +31,17 @@ export default async function FacultyPage() {
         {tier1.length > 0 && (
           <section>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-5xl mx-auto">
-              {tier1.map(fac => (
+              {tier1.map(fac => {
+                const coverUrl = fac.name.includes("Vyas") ? "/covers/jm_vyas_cover.jpg" : (fac.name.includes("Purvi") ? "/collegephoto.png" : null);
+                
+                return (
                 <div key={fac.id} className="bg-white/70 backdrop-blur-xl border border-white shadow-xl rounded-2xl overflow-hidden hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-1">
-                  <div className="h-48 bg-primary/5"></div>
-                  <div className="px-8 pb-8 text-center -mt-24">
+                  <div className="h-48 bg-primary/5 relative">
+                    {coverUrl && (
+                      <img src={coverUrl} alt="Cover" className="w-full h-full object-cover" />
+                    )}
+                  </div>
+                  <div className="px-8 pb-8 text-center -mt-24 relative z-10">
                     <div className="w-48 h-48 mx-auto rounded-full border-4 border-white shadow-lg overflow-hidden bg-gray-100 flex items-center justify-center mb-6">
                       {fac.imageUrl ? (
                         <img src={fac.imageUrl} alt={fac.name} className="w-full h-full object-cover" />
@@ -44,8 +50,8 @@ export default async function FacultyPage() {
                       )}
                     </div>
                     <h2 className="text-2xl md:text-3xl font-extrabold text-primary mb-1">{fac.name}</h2>
-                    <p className="text-secondary-dark font-black tracking-wider uppercase text-sm mb-4">{fac.title}</p>
-                    {fac.bio && <div className="text-gray-600 mb-6 leading-relaxed text-sm md:text-base max-h-40 overflow-y-auto custom-scrollbar px-2 whitespace-pre-line text-left">{fac.bio}</div>}
+                    <p className="text-secondary-dark font-black tracking-wider uppercase text-sm mb-4 whitespace-pre-line">{fac.title}</p>
+                    {fac.bio && <div className="text-gray-600 mb-6 leading-relaxed text-sm md:text-base max-h-40 overflow-y-auto custom-scrollbar px-2 whitespace-pre-line text-center">{fac.bio}</div>}
                     
                     <div className="flex justify-center gap-4">
                       {fac.linkedinUrl && (
@@ -61,7 +67,7 @@ export default async function FacultyPage() {
                     </div>
                   </div>
                 </div>
-              ))}
+              )})}
             </div>
           </section>
         )}
@@ -86,8 +92,8 @@ export default async function FacultyPage() {
                     )}
                   </div>
                   <h3 className="text-xl font-bold text-primary mb-1">{fac.name}</h3>
-                  <p className="text-secondary-dark font-bold text-xs uppercase tracking-wide mb-3">{fac.title}</p>
-                  {fac.bio && <div className="text-gray-600 text-xs mb-4 max-h-32 overflow-y-auto custom-scrollbar px-2 whitespace-pre-line text-left w-full">{fac.bio}</div>}
+                  <p className="text-secondary-dark font-bold text-xs uppercase tracking-wide mb-3 whitespace-pre-line">{fac.title}</p>
+                  {fac.bio && <div className="text-gray-600 text-xs mb-4 max-h-32 overflow-y-auto custom-scrollbar px-2 whitespace-pre-line text-center w-full">{fac.bio}</div>}
                   
                   <div className="mt-auto flex justify-center gap-3 w-full border-t border-gray-100 pt-4">
                     {fac.linkedinUrl && (
@@ -123,10 +129,10 @@ export default async function FacultyPage() {
                     </div>
                     <div>
                       <h4 className="font-bold text-primary text-sm leading-tight">{fac.name}</h4>
-                      <p className="text-xs text-secondary-dark font-semibold mt-0.5">{fac.title}</p>
+                      <p className="text-xs text-secondary-dark font-semibold mt-0.5 whitespace-pre-line">{fac.title}</p>
                     </div>
                   </div>
-                  {fac.bio && <div className="text-gray-500 text-[11px] mb-3 max-h-24 overflow-y-auto custom-scrollbar px-1 whitespace-pre-line text-left">{fac.bio}</div>}
+                  {fac.bio && <div className="text-gray-500 text-[11px] mb-3 max-h-24 overflow-y-auto custom-scrollbar px-1 whitespace-pre-line text-center">{fac.bio}</div>}
                   
                   <div className="mt-auto flex justify-end gap-2">
                     {fac.linkedinUrl && (

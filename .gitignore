@@ -45,3 +45,13 @@ done_processing/
 
 # Temporary Processing Data
 done_processing/
+.vercel
+
+# Student Data
+public/resumes/
+public/photos/students/
+public/photos/*
+!public/photos/faculty/
+dev.db
+*.csv
+prisma/dev.db

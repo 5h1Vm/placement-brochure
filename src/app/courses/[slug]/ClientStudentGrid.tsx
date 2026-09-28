@@ -6,12 +6,16 @@ import { getDirectDriveLink } from '@/lib/utils'
 
 export default function ClientStudentGrid({ students }: { students: any[] }) {
   const [selectedTag, setSelectedTag] = useState<string | null>(null)
-  const [isFilterOpen, setIsFilterOpen] = useState(true)
+  const [isFilterOpen, setIsFilterOpen] = useState(false)
   
   // Extract all unique tags
   const allTags = Array.from(
     new Set(students.flatMap(s => s.tags.map((t: any) => t.name)))
-  ).sort()
+  ).sort((a: any, b: any) => {
+    if (a === 'Digital Forensics') return 1;
+    if (b === 'Digital Forensics') return -1;
+    return a.localeCompare(b);
+  })
 
   const filteredStudents = (selectedTag 
     ? students.filter(s => s.tags.some((t: any) => t.name === selectedTag))
@@ -23,14 +27,34 @@ export default function ClientStudentGrid({ students }: { students: any[] }) {
       
       const getScore = (s: any) => {
         let score = 0;
-        if (s.experience && s.experience.trim() !== '') score += s.experience.split('\n').length * 10;
-        if (s.certifications && s.certifications.trim() !== '') score += s.certifications.split('\n').length * 10;
-        if (s.achievements && s.achievements.trim() !== '') score += s.achievements.split('\n').length * 10;
-        if (s.tags) score += s.tags.length * 2;
-        if (s.imageUrl) score += 50;
-        if (s.linkedinUrl) score += 20;
-        if (s.portfolioUrl) score += 20;
-        if (s.resumeUrl) score += 20;
+        
+        // 1. Core hygiene factors (Must-haves for recruiters)
+        if (s.resumeUrl) score += 200;
+        if (s.imageUrl) score += 150;
+        if (s.linkedinUrl) score += 100;
+        if (s.portfolioUrl) score += 100; // GitHub / Website
+        
+        // 2. Real-world Experience (Highest value content)
+        if (s.experience && s.experience.trim() !== '') {
+          const lines = s.experience.split('\n').filter((l: string) => l.trim().length > 0);
+          score += lines.length * 75; 
+        }
+
+        // 3. Verifiable Skills (Certifications)
+        if (s.certifications && s.certifications.trim() !== '') {
+          const lines = s.certifications.split('\n').filter((l: string) => l.trim().length > 0);
+          score += lines.length * 40;
+        }
+
+        // 4. Extracurriculars / Wins (Achievements)
+        if (s.achievements && s.achievements.trim() !== '') {
+          const lines = s.achievements.split('\n').filter((l: string) => l.trim().length > 0);
+          score += lines.length * 30;
+        }
+
+        // 5. Versatility (Domain tags)
+        if (s.tags) score += s.tags.length * 5;
+        
         return score;
       };
       
@@ -41,28 +65,33 @@ export default function ClientStudentGrid({ students }: { students: any[] }) {
 
   return (
     <div>
-      {/* Filters (Toggleable) */}
-      <div className="mb-8">
-        <button 
+      {/* Filter toggle button */}
+      <div className="relative z-30 mb-6">
+        <button
           onClick={() => setIsFilterOpen(!isFilterOpen)}
-          className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-3 flex items-center hover:text-primary transition-colors"
+          style={{ touchAction: 'manipulation' }}
+          className="flex items-center gap-2 px-5 py-3 rounded-full bg-white border border-gray-300 shadow-sm text-sm font-bold text-gray-600 select-none cursor-pointer hover:bg-gray-50 active:bg-gray-100"
         >
-          {isFilterOpen ? 'Hide Filters ▲' : 'Filter by Domain ▼'}
+          <span>{isFilterOpen ? '▲ Hide Filters' : '▼ Filter by Domain'}</span>
+          {selectedTag && <span className="bg-primary text-white text-xs px-2 py-0.5 rounded-full">1 active</span>}
         </button>
-        
+
+        {/* Filter tags panel */}
         {isFilterOpen && (
-          <div className="flex flex-wrap gap-2 p-4 bg-gray-50 rounded-lg border border-gray-200">
-            <button 
+          <div className="flex flex-wrap gap-2 p-4 mt-3 bg-gray-50 rounded-xl border border-gray-200 shadow-sm">
+            <button
               onClick={() => setSelectedTag(null)}
-              className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${selectedTag === null ? 'bg-primary text-white' : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-100'}`}
+              style={{ touchAction: 'manipulation' }}
+              className={`px-4 py-2.5 rounded-full text-sm font-semibold cursor-pointer select-none transition-colors ${selectedTag === null ? 'bg-primary text-white shadow-md' : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'}`}
             >
               All Students
             </button>
             {allTags.map(tag => (
-              <button 
+              <button
                 key={tag as string}
                 onClick={() => setSelectedTag(tag as string)}
-                className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${selectedTag === tag ? 'bg-secondary-dark text-white border border-secondary-dark' : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-100'}`}
+                style={{ touchAction: 'manipulation' }}
+                className={`px-4 py-2.5 rounded-full text-sm font-semibold cursor-pointer select-none transition-colors ${selectedTag === tag ? 'bg-[#8B6914] text-white shadow-md' : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'}`}
               >
                 {tag as string}
               </button>
@@ -113,7 +142,11 @@ export default function ClientStudentGrid({ students }: { students: any[] }) {
                     <BookOpen className="w-4 h-4 mr-2 shrink-0" /> Domains & Expertise
                   </h4>
                   <div className="flex flex-wrap gap-2">
-                    {student.tags.map((tag: any) => (
+                    {[...student.tags].sort((a: any, b: any) => {
+                      if (a.name === 'Digital Forensics') return 1;
+                      if (b.name === 'Digital Forensics') return -1;
+                      return a.name.localeCompare(b.name);
+                    }).map((tag: any) => (
                       <span key={tag.id} className="bg-primary/5 border border-primary/10 text-primary text-xs px-2.5 py-1 rounded-md font-semibold">
                         {tag.name}
                       </span>
@@ -127,7 +160,11 @@ export default function ClientStudentGrid({ students }: { students: any[] }) {
                   <h4 className="flex items-center text-xs font-bold text-secondary uppercase tracking-[0.15em] mb-2">
                     <Briefcase className="w-4 h-4 mr-2 shrink-0" /> Experience
                   </h4>
-                  <div className="text-sm text-gray-700 leading-relaxed whitespace-pre-line pl-1">{student.experience}</div>
+                  <ul className="list-disc pl-5 space-y-1.5 text-sm text-gray-700 leading-relaxed marker:text-gray-400">
+                    {student.experience.split('\n').filter((l: string) => l.trim().length > 0).map((line: string, i: number) => (
+                      <li key={i} className="pl-1">{line.replace(/^[\s•*-]+/, '')}</li>
+                    ))}
+                  </ul>
                 </div>
               )}
 
@@ -136,9 +173,11 @@ export default function ClientStudentGrid({ students }: { students: any[] }) {
                   <h4 className="flex items-center text-xs font-bold text-secondary uppercase tracking-[0.15em] mb-2">
                     <Award className="w-4 h-4 mr-2 shrink-0" /> Certifications
                   </h4>
-                  <div className="text-sm text-gray-700 leading-relaxed whitespace-pre-line pl-1">
-                    {student.certifications}
-                  </div>
+                  <ul className="list-disc pl-5 space-y-1.5 text-sm text-gray-700 leading-relaxed marker:text-gray-400">
+                    {student.certifications.split('\n').filter((l: string) => l.trim().length > 0).map((line: string, i: number) => (
+                      <li key={i} className="pl-1">{line.replace(/^[\s•*-]+/, '')}</li>
+                    ))}
+                  </ul>
                 </div>
               )}
 
@@ -147,9 +186,11 @@ export default function ClientStudentGrid({ students }: { students: any[] }) {
                   <h4 className="flex items-center text-xs font-bold text-secondary uppercase tracking-[0.15em] mb-2">
                     <Award className="w-4 h-4 mr-2 shrink-0" /> Achievements
                   </h4>
-                  <div className="text-sm text-gray-700 leading-relaxed whitespace-pre-line pl-1">
-                    {student.achievements}
-                  </div>
+                  <ul className="list-disc pl-5 space-y-1.5 text-sm text-gray-700 leading-relaxed marker:text-gray-400">
+                    {student.achievements.split('\n').filter((l: string) => l.trim().length > 0).map((line: string, i: number) => (
+                      <li key={i} className="pl-1">{line.replace(/^[\s•*-]+/, '')}</li>
+                    ))}
+                  </ul>
                 </div>
               )}
             </div>

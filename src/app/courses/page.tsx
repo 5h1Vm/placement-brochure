@@ -1,8 +1,7 @@
-import { PrismaClient } from '@prisma/client'
+import { prisma } from '@/lib/prisma'
 import Link from 'next/link'
 import { Users, BookOpen, ChevronRight } from 'lucide-react'
 
-const prisma = new PrismaClient()
 
 export default async function CoursesIndexPage() {
   const courses = await prisma.course.findMany({
