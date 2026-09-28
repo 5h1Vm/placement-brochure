@@ -63,6 +63,7 @@ model Student {
   imageUrl       String?
   linkedinUrl    String?
   portfolioUrl   String?
+  order          Int      @default(0)
   resumeUrl      String?
 }
 
